@@ -34,8 +34,7 @@ class Starter:
     def fieldsNames(self):
         return self.__fields
     
-    def __init__(self):
-        # Spark configuration in Local mode
+    def __init__(self, minPartitions=None):
         configuration = SparkConf().setMaster("local").setAppName(Starter.applicationName)
         self.__sc = SparkContext(conf = configuration)
         sc = self.__sc
@@ -51,8 +50,13 @@ class Starter:
         self.__fields = data["fields"]
         
         # Store "values" data in an RDD. Each "value" is related to one Vélo'V station
-        valuesRDD = sc.parallelize(data["values"])
+        if minPartitions==None:
+            valuesRDD = sc.parallelize(data["values"])
+        else:
+            valuesRDD = sc.parallelize(data["values"]).repartition(minPartitions)
+        # Make the RDD persist
         valuesRDD.persist(StorageLevel.MEMORY_ONLY)
+        # Store the RDD as an attribute
         self.__vrdd = valuesRDD
         
         # Number of Vélo'V stations
@@ -61,11 +65,6 @@ class Starter:
     
     
     def saveAsTextFile(self, vRDD=None):
-        """
-        saveAsTextFile(vRDD=None)
-        Saving information of interest for every 'values' (default) or for specified RDD restricted to some specific
-        'values'
-        """
         
         def formatting(value):
             
@@ -113,11 +112,6 @@ class Starter:
 
 
     def factors(self,feature):
-        """
-        factors(feature)
-        Get factors of a field 'feature' from values
-        """
-        
         if not(feature in self.fieldsNames):
             return None
         
@@ -125,7 +119,8 @@ class Starter:
         return factorRDD.collect()
         
         
-    
+    # Implémenter une méthode refresh() pour reconstruire les RDD avec les données à jour
+    # On perd l'immutabilité mais on évite un processus lourd de l'objet SparContext
         
 
 

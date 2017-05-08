@@ -10,12 +10,13 @@ from starter import *
 from misc import *
 import sys
 
-sObj = Starter()
+sObj = Starter(2)
 
 
 # Get the name of towns where bike stations are located
 towns = sObj.factors('commune')
-
+# Print the min number of parition used for the RDDs
+print("Min number of partitions for the RDDs: {0}".format(sObj.valuesRDD.getNumPartitions()))
 
 averageRatio = dict()
 for town in towns:
@@ -51,7 +52,7 @@ for town in towns:
     
     # Compute the average availability ratio of stations in the town
     sumCount = availabilityRatio.aggregate((0,0),\
-    (lambda acc, val: (acc[0]+val, acc[1]+1)), (lambda acc1,acc2: (acc1[0]+acc2[0],acc2[1]+acc2[1])) )
+    (lambda acc, val: (acc[0]+val, acc[1]+1)), (lambda acc1,acc2: (acc1[0]+acc2[0],acc1[1]+acc2[1])) )
     averageRatio[town] = sumCount[0]/sumCount[1]
 
 print('\nAverage availability of bikes in stations by town:')

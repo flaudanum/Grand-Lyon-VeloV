@@ -12,6 +12,21 @@ It creates a SparKContext object that is configured for running *Spark* in **loc
 ```Python
 configuration = SparkConf().setMaster("local").setAppName(Starter.applicationName)
 ```
+The syntax for the constructor of class starter.Starter is:  
+`Starter([minPartitions])`  
+The argument *minPartitions* can be defined for specifying the minimal number of partitions to be used in RDDs.  
+Example:
+```Python
+from starter import *
+
+sObj = Starter(2) # Minimum number of paritions is 2
+```
+The RDD providing the data in the field *values* can be access with the property *valuesRDD*. Each value of this RDD is a `dict` object.
+The other properties are:
+* *sparkContext* which provides the *pyspark.SparkContext* object instanciated by the *Starter* object
+* *stationNumber* (`int`) provides the number of bike stations open
+* *fieldsNames* (`list`) is the list of fields name (`str`), that is the keys of the `dict` values in *Starter.valuesRDD*
+
 
 # Availability of bikes
 The Python script `availability_by_town.py` is a use case where the percentage of bikes availability is calculated for each town of *Le Grand Lyon* (where there are bike stations).

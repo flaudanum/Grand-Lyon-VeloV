@@ -23,6 +23,10 @@ class Starter:
         return self.__sc
     
     @property
+    def config(self):
+        return self.__conf
+    
+    @property
     def stationNumber(self):
         return self.__snum
     
@@ -34,10 +38,17 @@ class Starter:
     def fieldsNames(self):
         return self.__fields
     
-    def __init__(self, minPartitions=None):
-        configuration = SparkConf().setMaster("local").setAppName(Starter.applicationName)
-        self.__sc = SparkContext(conf = configuration)
+    def __init__(self, minPartitions=None, profile=False):
+        self.__conf = SparkConf().setMaster("local").setAppName(Starter.applicationName)
+        if profile:
+            self.__conf.set("spark.python.profile", "true")
+            localFsSavePath = os.path.abspath("./rdd_profile")
+            if os.path.isdir(localFsSavePath):
+                shutil.rmtree(localFsSavePath)
+            self.__conf.set("spark.python.profile.dump",localFsSavePath)
+        self.__sc = SparkContext(conf = self.__conf)
         sc = self.__sc
+        
         
         with urllib.request.urlopen(Starter.dataSrcUrl) as response: # Type: <class 'http.client.HTTPResponse'>
             byteObj = response.read() # Type: <class 'bytes'>
@@ -53,9 +64,11 @@ class Starter:
         if minPartitions==None:
             valuesRDD = sc.parallelize(data["values"])
         else:
-            valuesRDD = sc.parallelize(data["values"]).repartition(minPartitions)
+            valuesRDD = sc.parallelize(data["values"],minPartitions)
+        
         # Make the RDD persist
-        valuesRDD.persist(StorageLevel.MEMORY_ONLY)
+        # valuesRDD.persist(StorageLevel.MEMORY_ONLY) 
+        
         # Store the RDD as an attribute
         self.__vrdd = valuesRDD
         

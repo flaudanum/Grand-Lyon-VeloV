@@ -6,10 +6,12 @@ $> spark-submit run.py
 compatibility: python 3.X
 '''
 
-from starter import *
-from misc import *
-import argparse
 import sys
+sys.path.append('../..')
+
+from starter import *
+import misc
+import argparse
 import cProfile
 
 def main(numPart, profile):
@@ -84,13 +86,9 @@ def main(numPart, profile):
 
     print('\nAverage availability of bikes in stations by town:')
     for town in sorted(towns):
-        # First capital letter
-        textList = list(town.lower())
-        textList[0] = textList[0].upper()
-        townText = ''.join(textList)
-        print('{0:18s} {1:3.0f} %'.format(townText, averageRatio[town]*100.))
+        print('{0:18s} {1:3.0f} %'.format(misc.firstCapital(town), averageRatio[town]*100.))
 
-    print('\n'+timestamp()+'\n')
+    print('\n'+misc.timestamp()+'\n')
 
     if profile:
         sObj.sparkContext.show_profiles()

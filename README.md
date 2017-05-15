@@ -100,9 +100,31 @@ The *profiling* mode (performance assessment) can be started with the option `-p
 
 ### Profiling
 
+The analysis of the performance of the codes is carried out with 3 tools:
+* the shell command `/user/bin/time`
+* the python module `pstats`
+* *pTimeStats* a python module computing time statistics on the elapsed time when running the application. `pTimeStats.py` is available [here](https://github.com/flaudanum/pTimeStats)
+
+In order to have some performance reference, here is my configuration:
+
+| Item | Designation |
+|--------------------|
+|OS           | Fedora 25 (64 bits) |
+|Core         | Intel® Core™ i5 @ quad core 2.67GHz |
+|Apache Spark | version 2.0.0 |
+|API Python   | 3.5.2, Anaconda 4.2.0 (64-bit)  [GCC 4.4.7 20120313 (Red Hat 4.4.7-1)] |
+
+
 #### RDD based solution
 When run in *profiling* mode, a directory `rdd_profile/` is created in the current path. *pstats* files related to every RDD created during the execution of the script can be found inside. Besides this directory, the file `availability_by_town.pstats` is created. It gives a general profiling of the run out of *Spark* activities.  
-**Rem:** it worthy to note that this use case is not challenging *Spark* (even in *local mode*) for most of the time is spent in calling the method `socket.recv_into`.
+
+Most of the time is spent reading from sockets with `socket.socket.recv_into()` which is related to *Spark* activities.
+This aspect is demonstrated in the [detailed analysis of the profiling of the *SQL based solution*](availability_by_town/docs/SQL-based_profile.md).
+
+`socket.recv_into()`. Here is an [extract from the python.org documentation](https://docs.python.org/3.5/library/socket.html?highlight=socket.recv_into#socket.socket.recv_into):
+
+`socket.recv_into(buffer[, nbytes[, flags]])`  
+Receive up to nbytes bytes from the socket, storing the data into a buffer rather than creating a new bytestring. If nbytes is not specified (or 0), receive up to the size available in the given buffer. Returns the number of bytes received. See the Unix manual page recv(2) for the meaning of the optional argument flags; it defaults to zero.
 ```
 $> /usr/bin/time -f "real:%E cpu:%P mem:%K" spark-submit availability_by_town.py -p
 ...
@@ -124,13 +146,36 @@ Tue May  9 11:54:59 2017    ./availability_by_town.pstats
         1    0.046    0.046    0.046    0.046 {method 'do_handshake' of '_ssl._SSLSocket' objects}
        16    0.042    0.003    0.050    0.003 {built-in method _socket.getaddrinfo}
 ```
-`socket.recv_into()`. Here is an [extract from the python.org documentation](https://docs.python.org/3.5/library/socket.html?highlight=socket.recv_into#socket.socket.recv_into):
+Time statistics are listed below. The process performance is very stable with small confidence intervals for the
+elapsed time and the CPU load.
+```
+Total number of CPU-seconds that the process spent in user mode divided by the CPU load
+Min value:       5.78 sec
+Mean value:      6.19 sec
+Max value:       7.18 sec
+90% confidence:  [6.16 , 6.64] sec
 
-`socket.recv_into(buffer[, nbytes[, flags]])`  
-Receive up to nbytes bytes from the socket, storing the data into a buffer rather than creating a new bytestring. If nbytes is not specified (or 0), receive up to the size available in the given buffer. Returns the number of bytes received. See the Unix manual page recv(2) for the meaning of the optional argument flags; it defaults to zero.
+Percentage of a CPU that this job got
+Min value:       150.00 %
+Mean value:      177.57 %
+Max value:       186.00 %
+90% confidence:  [178.50 , 185.09] %
+
+Elapsed real time
+Min value:       6.03 sec
+Mean value:      6.42 sec
+Max value:       7.43 sec
+90% confidence:  [6.38 , 6.89] sec
+```
+
 
 #### SQL based solution
-When running the *Spark SQL* based solution, the analysis of the file `./availability_by_town.pstats` leads to the same conclusion than when running the *RDD based one*: most of the time reading sockets with `socket.recv_into()`. Nevertheless, there are thrice the number of calls and the total time is thrice also.
+When running the *Spark SQL* based solution, the analysis of the file `./availability_by_town.pstats` leads to the same conclusion than when running the *RDD based one*: most of the time reading sockets with `socket.recv_into()`. However, there are thrice the number of calls and the total time is thrice also.
+A [detailed analysis of the profile](availability_by_town/docs/SQL-based_profile.md) at different steps of the code reveals that the operations using `DataFrame` objects are
+very efficient but there are some small overheads:
+* creation of the `DataFrame` from an RDD
+* calls to the `DataFrame.collect()` method that provide an iterator to the `Row` objects in the `DataFrame`.
+
 ```
 $> /usr/bin/time -f "real:%E cpu:%P mem:%K" spark-submit availability_by_town.py -p
 ...
@@ -173,7 +218,33 @@ Fri May 12 23:41:24 2017    availability_by_town.pstats
           571/486    0.005    0.000   10.627    0.022 /home/flaudanum/Applications/spark-2.0.0-bin-hadoop2.7/python/lib/py4j-0.10.1-src.zip/py4j/java_gateway.py:923(__call__)
                 1    0.000    0.000    6.457    6.457 /home/flaudanum/DEV/Projects/Grand-Lyon-VeloV.dev/availability_by_town/SQL_based/starter.py:46(__init__)
 ```
+Here are the time statistics:
+```
+$> python pTimeStats.py command 'spark-submit availability_by_town.py' 30
+
+Percentage of a CPU that this job got
+Min value:       220.00 %
+Mean value:      227.57 %
+Max value:       238.00 %
+90% confidence:  [227.50 , 234.36] %
+
+Elapsed real time
+Min value:       14.23 sec
+Mean value:      14.62 sec
+Max value:       15.30 sec
+90% confidence:  [14.56 , 15.15] sec
+
+Total number of CPU-seconds that the process spent in user mode divided by the CPU load
+Min value:       13.88 sec
+Mean value:      14.25 sec
+Max value:       14.96 sec
+90% confidence:  [14.19 , 14.80] sec
+```
+
 
 #### Conclusion
-When looking at the cumulated time, the module `socket` (max number of calls for high cumulated time) seems to be the source of the calls. The reading of the JSON file from the URL could be suspected as the costly operation but it does not explain why the Spark SQL based approach makes thrice the number of calls. This difference in the number of socket reading may highlight a difference in the performance related mechanisms between *Spark RDD* and *Spark SQL*.  
-**TO BE INVESTIGATED**.
+
+Every *Spark* operation from the creation of data with RDD or DataFrames, their transformations and final actions imply communications involving reading data on sockets.
+Operations on DataFrames are acknowledged to be more efficient than those on RDDs. Considering the overhead when creating and reading (with `collect()`) from DataFrames,
+that assertion is probably true for applications dealing with bigger volumes of data. Considering the small one of input data involved in this use case, a simple python
+application with `threading` or `multiprocessing` modules may provide more efficient solutions. 

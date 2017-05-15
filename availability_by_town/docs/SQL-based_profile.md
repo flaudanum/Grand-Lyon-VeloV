@@ -1,5 +1,10 @@
 # Profiling analysis of the SQL based solution of the *Availability of bikes by town*
 
+Some section refer to breakpoints.
+The Profiling of the code was indeed carried out with breakpoints (call to `exit(0)`) at progressing steps in the code.
+A version of the source code with comments indicating the position of those breaks is available in the directory
+[SQL-based_profile_src](https://github.com/flaudanum/Grand-Lyon-VeloV/tree/master/availability_by_town/docs/SQL-based_profile_src/).
+
 ## Starting `spark-submit`
 
 Starting command `spark-submit` takes 1.27 seconds with my machine which is not neglectible considering the briefness of the whole run. As we can see no time was spent in function calls:  
